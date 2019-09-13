@@ -1,4 +1,3 @@
-
 import edu.princeton.cs.algs4.Digraph;
 import edu.princeton.cs.algs4.In;
 import edu.princeton.cs.algs4.Queue;
@@ -6,10 +5,9 @@ import edu.princeton.cs.algs4.StdIn;
 import edu.princeton.cs.algs4.StdOut;
 
 import java.lang.ref.SoftReference;
-import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.TreeSet;
 
 public class SAP {
@@ -25,8 +23,7 @@ public class SAP {
     private final Integer[] pathV;
     private final Integer[] pathW;
 
-    private SoftReference<TreeMap<Integer, Integer[]>> vertCache;
-    private SoftReference<HashMap<Iterable<Integer>, Integer[]>> iterableCache;
+    private SoftReference<HashMap<Iterable<Integer>, IntPair[]>> iterableCache;
 
     // constructor takes a digraph (not necessarily a DAG)
     public SAP(Digraph G) {
@@ -42,14 +39,22 @@ public class SAP {
     public int length(int v, int w) {
         if (v < 0 || v > digraph.V() || w < 0 || w > digraph.V())
             throw new IllegalArgumentException();
-        return getAncestorData(v, w)[1];
+        LinkedList<Integer> iterV = new LinkedList<>();
+        iterV.add(v);
+        LinkedList<Integer> iterW = new LinkedList<>();
+        iterV.add(w);
+        return getAncestorData(iterV, iterW).getV2();
     }
 
     // a common ancestor of v and w that participates in a shortest ancestral path; -1 if no such path
     public int ancestor(int v, int w) {
         if (v < 0 || v > digraph.V() || w < 0 || w > digraph.V())
             throw new IllegalArgumentException();
-        return getAncestorData(v, w)[0];
+        LinkedList<Integer> iterV = new LinkedList<>();
+        iterV.add(v);
+        LinkedList<Integer> iterW = new LinkedList<>();
+        iterV.add(w);
+        return getAncestorData(iterV, iterW).getV1();
     }
 
     // length of shortest ancestral path between any vertex in v and any vertex in w; -1 if no such path
@@ -59,7 +64,7 @@ public class SAP {
             if (i == null) throw new IllegalArgumentException();
         for (Integer i : w)
             if (i == null) throw new IllegalArgumentException();
-        return getAncestorData(v, w)[1];
+        return getAncestorData(v, w).getV2();
 
     }
 
@@ -70,30 +75,8 @@ public class SAP {
             if (i == null) throw new IllegalArgumentException();
         for (Integer i : w)
             if (i == null) throw new IllegalArgumentException();
-        return getAncestorData(v, w)[0];
+        return getAncestorData(v, w).getV1();
     }
-
-
-    private void pathBFS(int v) {
-        resetFields();
-        // a vertex Is considered an ancestor of itself
-        pathLength[v] = 0;
-        marked[v] = true;
-        queue.enqueue(v);
-
-        // pathLength[i-1]+1
-        for (int i = 1; !queue.isEmpty(); i++) {
-            for (int n : digraph.adj(queue.dequeue())) {
-                if (!marked[n]) {
-                    marked[n] = true;
-                    queue.enqueue(n);
-                    pathLength[n] = i;
-                    // TODO: add ancestors thecking
-                }
-            }
-        }
-    }
-
 
     private Integer[] pathBFS(Iterable<Integer> verts, boolean isA) {
         resetFields();
@@ -137,7 +120,7 @@ public class SAP {
     }
 
 
-    private int[] ancestorLength(Integer[] pathV, Integer[] pathW) {
+    private IntPair ancestorLength(Integer[] pathV, Integer[] pathW) {
         // closest common ancestor path
         int ccap = Integer.MAX_VALUE;
         int cca = -1;
@@ -152,7 +135,7 @@ public class SAP {
         }
 
         if (ccap == Integer.MAX_VALUE) ccap = -1;
-        return new int[] { cca, ccap };
+        return new IntPair(cca, ccap);
     }
 
     private void resetFields() {
@@ -162,89 +145,65 @@ public class SAP {
         }
     }
 
-
-    // don't know how to get rid of these duplicates
-    // TODO: this code is buggy and should be editted as its iterable form
-    private int[] getAncestorData(int v, int w) {
-        if (vertCache != null && vertCache.get() != null) {
-            Integer[] cacheV = vertCache.get().get(v);
-            if (cacheV == null) {
-                pathBFS(v);
-                System.arraycopy(pathLength, 0, pathV, 0, pathLength.length);
-                vertCache.get().put(v, pathV);
-            }
-            else {
-                //pathV = Arrays.copyOf(cacheV, cacheV.length);
-                System.arraycopy(cacheV, 0, pathV, 0, cacheV.length);
-            }
-
-            Integer[] cacheW = vertCache.get().get(w);
-            if (cacheW == null) {
-                pathBFS(w);
-                System.arraycopy(pathLength, 0, pathW, 0, pathLength.length);
-                vertCache.get().put(w, pathW);
-            }
-            else {
-                System.arraycopy(cacheW, 0, pathW, 0, pathLength.length);
-            }
-        }
-        else {
-            vertCache = new SoftReference<TreeMap<Integer, Integer[]>>(
-                    new TreeMap<Integer, Integer[]>());
-            pathBFS(v);
-            System.arraycopy(pathLength, 0, pathV, 0, pathLength.length);
-            pathBFS(w);
-            System.arraycopy(pathLength, 0, pathW, 0, pathLength.length);
-            vertCache.get().put(v, pathV);
-            vertCache.get().put(w, pathW);
-        }
-        return ancestorLength(pathV, pathW);
-    }
-
-    private int[] getAncestorData(Iterable<Integer> v, Iterable<Integer> w) {
+    private IntPair getAncestorData(Iterable<Integer> v, Iterable<Integer> w) {
         if (iterableCache != null && iterableCache.get() != null) {
-            Integer[] cacheV = iterableCache.get().get(v);
+            IntPair[] cacheV = iterableCache.get().get(v);
             if (cacheV == null) {
-                pathBFS(v, true);
-                System.arraycopy(pathLength, 0, pathV, 0, pathLength.length);
-                // add new cache data
-                iterableCache.get().put(v, Arrays.copyOfRange(pathLength, 0, pathLength.length));
+                exploreAndCache(v, true, pathV, ancestorsV);
             }
             else {
-                System.arraycopy(cacheV, 0, pathV, 0, pathLength.length);
-                ancestorsV.clear();
-                for (int i = 0; i < cacheV.length; i++)
-                    if (cacheV[i] != null)
-                        ancestorsV.add(i);
+                loadCache(cacheV, pathV, ancestorsV);
             }
 
-            Integer[] cacheW = iterableCache.get().get(w);
+            IntPair[] cacheW = iterableCache.get().get(w);
             if (cacheW == null) {
-                pathBFS(w, false);
-                System.arraycopy(pathLength, 0, pathV, 0, pathLength.length);
-                iterableCache.get().put(w, Arrays.copyOfRange(pathLength, 0, pathLength.length));
+                exploreAndCache(w, false, pathW, ancestorsW);
             }
             else {
-                System.arraycopy(cacheW, 0, pathW, 0, pathLength.length);
-                ancestorsW.clear();
-                for (int i = 0; i < cacheW.length; i++)
-                    if (cacheW[i] != null)
-                        ancestorsW.add(i);
+                loadCache(cacheW, pathW, ancestorsW);
             }
         }
         else {
-            iterableCache = new SoftReference<HashMap<Iterable<Integer>, Integer[]>>(
-                    new HashMap<Iterable<Integer>, Integer[]>());
-            pathBFS(v, true);
-            System.arraycopy(pathLength, 0, pathV, 0, pathLength.length);
-            pathBFS(w, false);
-            System.arraycopy(pathLength, 0, pathW, 0, pathLength.length);
-            iterableCache.get().put(v, Arrays.copyOfRange(pathV, 0, pathV.length));
-            iterableCache.get().put(w, Arrays.copyOfRange(pathW, 0, pathW.length));
+            iterableCache = new SoftReference<HashMap<Iterable<Integer>, IntPair[]>>
+                    (new HashMap<Iterable<Integer>, IntPair[]>());
+
+            exploreAndCache(v, true, pathV, ancestorsV);
+            exploreAndCache(w, false, pathW, ancestorsW);
         }
         return ancestorLength(pathV, pathW);
     }
 
+    private IntPair[] buildCacheItem(int size) {
+        IntPair[] cache = new IntPair[size];
+        int index = 0;
+        for (int i = 0; i < pathLength.length; i++) {
+            if (pathLength[i] != null) {
+                cache[index++] = new IntPair(i, pathLength[i]);
+                // no need to proceed if all possible intries are already added
+                if (index == cache.length)
+                    break;
+            }
+        }
+        return cache;
+    }
+
+    private void loadCache(IntPair[] nonNull, Integer[] path, Set<Integer> ancestors) {
+        ancestors.clear();
+        for (int i = 0; i < path.length; i++) {
+            path[i] = 0;
+        }
+        for (IntPair ip : nonNull) {
+            path[ip.getV1()] = ip.getV2();
+            ancestors.add(ip.getV1());
+        }
+    }
+
+    private void exploreAndCache(Iterable<Integer> vetricies, boolean flag, Integer[] path, Set<Integer> ancestors) {
+        pathBFS(vetricies, flag);
+        System.arraycopy(pathLength, 0, path, 0, pathLength.length);
+        IntPair[] cache = buildCacheItem(ancestors.size());
+        iterableCache.get().put(vetricies, cache);
+    }
 
     // do unit testing of this class
     public static void main(String[] args) {
@@ -254,10 +213,28 @@ public class SAP {
         while (!StdIn.isEmpty()) {
             int v = StdIn.readInt();
             int w = StdIn.readInt();
-            int length = sap.length(v, w);
+            int length   = sap.length(v, w);
             int ancestor = sap.ancestor(v, w);
             StdOut.printf("length = %d, ancestor = %d\n", length, ancestor);
         }
     }
 
+}
+
+class IntPair {
+    private int v1;
+    private int v2;
+
+    IntPair (int first, int second) {
+        v1 = first;
+        v2 = second;
+    }
+
+        int getV1() {
+            return v1;
+        }
+
+        int getV2() {
+            return v2;
+        }
 }

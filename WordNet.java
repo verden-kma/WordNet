@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 public class WordNet {
-    // creasy idea: use Object insted of LinkedList and choose in runtime wheather you need a LinkedList or Integer is enough
+
     private final Map<String, LinkedList<Integer>> indeciesMap = new TreeMap<>();
     private final Map<Integer, String> synsetsMap = new TreeMap<>();
     private final Digraph hypernymsGraph;
@@ -69,10 +69,7 @@ public class WordNet {
     // distance between nounA and nounB (defined below)
     public int distance(String nounA, String nounB) {
         if (!isNoun(nounA) || !isNoun(nounB)) throw new IllegalArgumentException();
-        LinkedList<Integer> tokensA = indeciesMap.get(nounA);
-        LinkedList<Integer> tokensB = indeciesMap.get(nounB);
-
-        return sap.length(tokensA, tokensB);
+        return sap.length(indeciesMap.get(nounA), indeciesMap.get(nounB));
     }
 
     // a synset (second field of synsets.txt) that is the common ancestor of nounA and nounB
