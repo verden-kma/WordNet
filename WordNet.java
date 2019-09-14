@@ -56,6 +56,8 @@ public class WordNet {
         // DiCycle dc = new DiCycle(hypernymsGraph);
         if (dc.hasCycle()) throw new IllegalArgumentException();
 
+        checkForSingleRoot();
+
         // use fully constructed graph to create a SAP object
         sap = new SAP(hypernymsGraph);
     }
@@ -95,5 +97,17 @@ public class WordNet {
     public static void main(String[] args) {
         WordNet wordnet = new WordNet(args[0], args[1]);
         System.out.println(wordnet.distance("damage", "jump"));
+    }
+
+    private void checkForSingleRoot() {
+        // there is only one vertex that is allowed to have no adjacent verticies - the root
+        // once the root is found, the other adjesentless vertex indiates incorrect input
+        boolean rootFound = false;
+        for (int i = 0; i < hypernymsGraph.V(); i++) {
+            if (!hypernymsGraph.adj(i).iterator().hasNext()) {
+                if (rootFound) throw new IllegalArgumentException();
+                else rootFound = true;
+            }
+        }
     }
 }

@@ -11,8 +11,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 
-//import java.lang.ref.SoftReference;
-
 public class SAP {
 
     private final Set<Integer> ancestorsV = new TreeSet<>();
@@ -26,7 +24,8 @@ public class SAP {
     private final Integer[] pathV;
     private final Integer[] pathW;
 
-    //    private SoftReference<HashMap<Iterable<Integer>, IntPair[]>> iterableCache;
+    // coursera cannot compile a class with SoftReference import
+    // private SoftReference<HashMap<Iterable<Integer>, IntPair[]>> iterableCache;
     private Map<Iterable<Integer>, IntPair[]> iterableCache = new HashMap<>();
 
     // constructor takes a digraph (not necessarily a DAG)
@@ -134,7 +133,7 @@ public class SAP {
     }
 
     private IntPair getAncestorData(Iterable<Integer> v, Iterable<Integer> w) {
-        // if (iterableCache != null) {
+        if (iterableCache != null) {
         IntPair[] cacheV = iterableCache.get(v);
         if (cacheV == null) {
             exploreAndCache(v, true, pathV, ancestorsV);
@@ -150,13 +149,13 @@ public class SAP {
         else {
             loadCache(cacheW, pathW, ancestorsW);
         }
-        // }
-        /*else {
+         }
+        else {
             iterableCache = new HashMap<Iterable<Integer>, IntPair[]>();
 
             exploreAndCache(v, true, pathV, ancestorsV);
             exploreAndCache(w, false, pathW, ancestorsW);
-        }*/
+        }
         return ancestorLength(pathV, pathW);
     }
 
