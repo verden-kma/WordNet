@@ -1,4 +1,5 @@
 import edu.princeton.cs.algs4.Digraph;
+import edu.princeton.cs.algs4.DirectedCycle;
 import edu.princeton.cs.algs4.In;
 
 import java.util.LinkedList;
@@ -51,6 +52,10 @@ public class WordNet {
         }
         inputHypernym.close();
 
+        DirectedCycle dc = new DirectedCycle(hypernymsGraph);
+        // DiCycle dc = new DiCycle(hypernymsGraph);
+        if (dc.hasCycle()) throw new IllegalArgumentException();
+
         // use fully constructed graph to create a SAP object
         sap = new SAP(hypernymsGraph);
     }
@@ -62,28 +67,33 @@ public class WordNet {
 
     // is the word a WordNet noun?
     public boolean isNoun(String word) {
+        if (word == null) throw new IllegalArgumentException();
         // if there is no such word, null will be returned
         return indeciesMap.get(word) != null;
     }
 
     // distance between nounA and nounB (defined below)
     public int distance(String nounA, String nounB) {
-        if (!isNoun(nounA) || !isNoun(nounB)) throw new IllegalArgumentException();
+        validateInput(nounA, nounB);
         return sap.length(indeciesMap.get(nounA), indeciesMap.get(nounB));
     }
 
     // a synset (second field of synsets.txt) that is the common ancestor of nounA and nounB
     // in a shortest ancestral path (defined below)
     public String sap(String nounA, String nounB) {
-        if (!isNoun(nounA) || !isNoun(nounB)) throw new IllegalArgumentException();
+        validateInput(nounA, nounB);
         int ancestor = sap.ancestor(indeciesMap.get(nounA), indeciesMap.get(nounB));
         return synsetsMap.get(ancestor);
+    }
+
+    private void validateInput(String nounA, String nounB) {
+        if (nounA == null || nounB == null) throw new IllegalArgumentException();
+        if (!isNoun(nounA) || !isNoun(nounB)) throw new IllegalArgumentException();
     }
 
     // do unit testing of this class
     public static void main(String[] args) {
         WordNet wordnet = new WordNet(args[0], args[1]);
         System.out.println(wordnet.distance("damage", "jump"));
-
     }
 }

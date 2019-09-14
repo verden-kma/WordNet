@@ -4,11 +4,14 @@ import edu.princeton.cs.algs4.Queue;
 import edu.princeton.cs.algs4.StdIn;
 import edu.princeton.cs.algs4.StdOut;
 
-import java.lang.ref.SoftReference;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+
+//import java.lang.ref.SoftReference;
 
 public class SAP {
 
@@ -23,7 +26,8 @@ public class SAP {
     private final Integer[] pathV;
     private final Integer[] pathW;
 
-    private SoftReference<HashMap<Iterable<Integer>, IntPair[]>> iterableCache;
+    //    private SoftReference<HashMap<Iterable<Integer>, IntPair[]>> iterableCache;
+    private Map<Iterable<Integer>, IntPair[]> iterableCache = new HashMap<>();
 
     // constructor takes a digraph (not necessarily a DAG)
     public SAP(Digraph G) {
@@ -37,45 +41,45 @@ public class SAP {
 
     // length of shortest ancestral path between v and w; -1 if no such path
     public int length(int v, int w) {
-        if (v < 0 || v > digraph.V() || w < 0 || w > digraph.V())
+        if (v < 0 || v >= digraph.V() || w < 0 || w >= digraph.V())
             throw new IllegalArgumentException();
         LinkedList<Integer> iterV = new LinkedList<>();
         iterV.add(v);
         LinkedList<Integer> iterW = new LinkedList<>();
-        iterV.add(w);
+        iterW.add(w);
         return getAncestorData(iterV, iterW).getV2();
     }
 
     // a common ancestor of v and w that participates in a shortest ancestral path; -1 if no such path
     public int ancestor(int v, int w) {
-        if (v < 0 || v > digraph.V() || w < 0 || w > digraph.V())
+        if (v < 0 || v >= digraph.V() || w < 0 || w >= digraph.V())
             throw new IllegalArgumentException();
         LinkedList<Integer> iterV = new LinkedList<>();
         iterV.add(v);
         LinkedList<Integer> iterW = new LinkedList<>();
-        iterV.add(w);
+        iterW.add(w);
         return getAncestorData(iterV, iterW).getV1();
     }
 
     // length of shortest ancestral path between any vertex in v and any vertex in w; -1 if no such path
     public int length(Iterable<Integer> v, Iterable<Integer> w) {
-        if (v == null || w == null) throw new IllegalArgumentException();
-        for (Integer i : v)
-            if (i == null) throw new IllegalArgumentException();
-        for (Integer i : w)
-            if (i == null) throw new IllegalArgumentException();
+        validateInput(v, w);
         return getAncestorData(v, w).getV2();
 
     }
 
     // a common ancestor that participates in shortest ancestral path; -1 if no such path
     public int ancestor(Iterable<Integer> v, Iterable<Integer> w) {
+        validateInput(v, w);
+        return getAncestorData(v, w).getV1();
+    }
+
+    private void validateInput(Iterable<Integer> v, Iterable<Integer> w) {
         if (v == null || w == null) throw new IllegalArgumentException();
         for (Integer i : v)
-            if (i == null) throw new IllegalArgumentException();
+            if (i == null || i < 0 || i >= digraph.V() ) throw new IllegalArgumentException();
         for (Integer i : w)
-            if (i == null) throw new IllegalArgumentException();
-        return getAncestorData(v, w).getV1();
+            if (i == null || i < 0 || i >= digraph.V()) throw new IllegalArgumentException();
     }
 
     private Integer[] pathBFS(Iterable<Integer> verts, boolean isA) {
@@ -99,43 +103,27 @@ public class SAP {
             pathLength[v] = 0;
             ancestorStorage.add(v);
 
-            for (int i = 1; !queue.isEmpty(); i++) {
-                for (int n : digraph.adj(queue.dequeue())) {
+            // current vertex
+            int cv;
+            while (!queue.isEmpty()) {
+                cv = queue.dequeue();
+                for (int n : digraph.adj(cv)) {
 
                     if (!marked[n]) {
                         marked[n] = true;
                         queue.enqueue(n);
-                        pathLength[n] = i;
+                        pathLength[n] = pathLength[cv] + 1;
                         ancestorStorage.add(n);
                     }
                     // if path of marked vertex is less
-                    else if (pathLength[n] > i) {
+                    else if (pathLength[n] > pathLength[cv] + 1) {
                         queue.enqueue(n);
-                        pathLength[n] = i;
+                        pathLength[n] = pathLength[cv] + 1;
                     }
                 }
             }
         }
         return pathLength;
-    }
-
-
-    private IntPair ancestorLength(Integer[] pathV, Integer[] pathW) {
-        // closest common ancestor path
-        int ccap = Integer.MAX_VALUE;
-        int cca = -1;
-
-        ancestorsV.retainAll(ancestorsW);
-
-        for (Integer i : ancestorsV) {
-                if (ccap > pathV[i] + pathW[i]) {
-                    ccap = pathV[i] + pathW[i];
-                    cca = i;
-                }
-        }
-
-        if (ccap == Integer.MAX_VALUE) ccap = -1;
-        return new IntPair(cca, ccap);
     }
 
     private void resetFields() {
@@ -146,31 +134,48 @@ public class SAP {
     }
 
     private IntPair getAncestorData(Iterable<Integer> v, Iterable<Integer> w) {
-        if (iterableCache != null && iterableCache.get() != null) {
-            IntPair[] cacheV = iterableCache.get().get(v);
-            if (cacheV == null) {
-                exploreAndCache(v, true, pathV, ancestorsV);
-            }
-            else {
-                loadCache(cacheV, pathV, ancestorsV);
-            }
-
-            IntPair[] cacheW = iterableCache.get().get(w);
-            if (cacheW == null) {
-                exploreAndCache(w, false, pathW, ancestorsW);
-            }
-            else {
-                loadCache(cacheW, pathW, ancestorsW);
-            }
+        // if (iterableCache != null) {
+        IntPair[] cacheV = iterableCache.get(v);
+        if (cacheV == null) {
+            exploreAndCache(v, true, pathV, ancestorsV);
         }
         else {
-            iterableCache = new SoftReference<HashMap<Iterable<Integer>, IntPair[]>>
-                    (new HashMap<Iterable<Integer>, IntPair[]>());
+            loadCache(cacheV, pathV, ancestorsV);
+        }
+
+        IntPair[] cacheW = iterableCache.get(w);
+        if (cacheW == null) {
+            exploreAndCache(w, false, pathW, ancestorsW);
+        }
+        else {
+            loadCache(cacheW, pathW, ancestorsW);
+        }
+        // }
+        /*else {
+            iterableCache = new HashMap<Iterable<Integer>, IntPair[]>();
 
             exploreAndCache(v, true, pathV, ancestorsV);
             exploreAndCache(w, false, pathW, ancestorsW);
-        }
+        }*/
         return ancestorLength(pathV, pathW);
+    }
+
+    private IntPair ancestorLength(Integer[] pathV, Integer[] pathW) {
+        // closest common ancestor path
+        int ccap = Integer.MAX_VALUE;
+        int cca = -1;
+
+        ancestorsV.retainAll(ancestorsW);
+
+        for (Integer i : ancestorsV) {
+            if (ccap > pathV[i] + pathW[i]) {
+                ccap = pathV[i] + pathW[i];
+                cca = i;
+            }
+        }
+
+        if (ccap == Integer.MAX_VALUE) ccap = -1;
+        return new IntPair(cca, ccap);
     }
 
     private IntPair[] buildCacheItem(int size) {
@@ -198,11 +203,12 @@ public class SAP {
         }
     }
 
-    private void exploreAndCache(Iterable<Integer> vetricies, boolean flag, Integer[] path, Set<Integer> ancestors) {
+    private void exploreAndCache(Iterable<Integer> vetricies, boolean flag, Integer[] path,
+                                 Set<Integer> ancestors) {
         pathBFS(vetricies, flag);
         System.arraycopy(pathLength, 0, path, 0, pathLength.length);
         IntPair[] cache = buildCacheItem(ancestors.size());
-        iterableCache.get().put(vetricies, cache);
+        iterableCache.put(vetricies, cache);
     }
 
     // do unit testing of this class
@@ -213,7 +219,7 @@ public class SAP {
         while (!StdIn.isEmpty()) {
             int v = StdIn.readInt();
             int w = StdIn.readInt();
-            int length   = sap.length(v, w);
+            int length = sap.length(v, w);
             int ancestor = sap.ancestor(v, w);
             StdOut.printf("length = %d, ancestor = %d\n", length, ancestor);
         }
@@ -225,16 +231,30 @@ class IntPair {
     private int v1;
     private int v2;
 
-    IntPair (int first, int second) {
+    IntPair(int first, int second) {
         v1 = first;
         v2 = second;
     }
 
-        int getV1() {
-            return v1;
-        }
+    int getV1() {
+        return v1;
+    }
 
-        int getV2() {
-            return v2;
-        }
+    int getV2() {
+        return v2;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        IntPair intPair = (IntPair) o;
+        return v1 == intPair.v1 &&
+                v2 == intPair.v2;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(v1, v2);
+    }
 }
